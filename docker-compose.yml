@@ -1,0 +1,56 @@
+services:
+  university-schedule:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile
+    container_name: schedule-api
+    environment:
+      - HTTP_ADDR=:8080
+      - CLICKHOUSE_DSN=tcp://clickhouse:9000?database=schedule
+      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+      - STORAGE_DIR=/data/uploads
+    ports:
+      - "8085:8080"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - uploads:/data/uploads
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24
+    container_name: schedule-clickhouse
+    environment:
+      - CLICKHOUSE_DB=schedule
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ch_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query='SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: schedule-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ch_data:
+  rabbit_data:
+  uploads:
