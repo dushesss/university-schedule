@@ -1,14 +1,24 @@
 services:
+  # Backend API сервис
   university-schedule:
     build:
-      context: .
-      dockerfile: deployments/Dockerfile
+      context: ./backend
+      dockerfile: ../deployments/Dockerfile
     container_name: schedule-api
     environment:
       - HTTP_ADDR=:8080
-      - CLICKHOUSE_DSN=tcp://clickhouse:9000?database=schedule
+      - CLICKHOUSE_DSN=clickhouse://default:@clickhouse:9000/schedule?dial_timeout=10s
+      - CLICKHOUSE_DATABASE=schedule
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=9000
       - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
       - STORAGE_DIR=/data/uploads
+      - MIGRATIONS_PATH=/app/migrations
+      - MIGRATIONS_TABLE=migrations
+      - LOG_LEVEL=info
+      - LOG_FILE=/app/logs/api.log
     ports:
       - "8085:8080"
     depends_on:
@@ -18,6 +28,8 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/data/uploads
+      - ./logs:/app/logs
+      - ./backend/migrations:/app/migrations:ro
 
   clickhouse:
     image: clickhouse/clickhouse-server:24
